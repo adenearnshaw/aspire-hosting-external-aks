@@ -3,14 +3,19 @@ name: Release
 on:
   push:
     tags:
-      - 'v[0-9]+.[0-9]+.[0-9]+'
-      - 'v[0-9]+.[0-9]+.[0-9]+-*'
+      - 'v*.*.*'
+      - 'v*.*.*-*'
   workflow_dispatch:
     inputs:
       version:
         description: 'Version to release (e.g., 1.0.0)'
         required: true
         type: string
+      dry_run:
+        description: 'Build, test, and pack only (skip GitHub release + NuGet publish)'
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -33,14 +38,19 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
             VERSION="${{ github.event.inputs.version }}"
+            DRY_RUN="${{ github.event.inputs.dry_run }}"
           else
             # Remove 'v' prefix from tag (e.g., v1.2.3 -> 1.2.3)
             VERSION=${GITHUB_REF#refs/tags/v}
+            DRY_RUN="false"
           fi
           
           echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "dry_run=$DRY_RUN" >> $GITHUB_OUTPUT
           echo "📌 Building version: $VERSION"
+          echo "🧪 Dry run: $DRY_RUN"
           echo "### Release Version: \`$VERSION\`" >> $GITHUB_STEP_SUMMARY
+          echo "### Dry Run: \`$DRY_RUN\`" >> $GITHUB_STEP_SUMMARY
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -49,14 +59,24 @@ jobs:
             9.0.x
             10.0.x
 
-      - name: Restore dependencies
-        run: dotnet restore
+      - name: Create artifacts directory
+        run: mkdir -p ./artifacts/packages
 
-      - name: Build solution
-        run: dotnet build --no-restore --configuration Release
+      - name: Restore package project
+        run: dotnet restore src/A10w.Aspire.Hosting.ExternalAks/A10w.Aspire.Hosting.ExternalAks.csproj
+
+      - name: Restore test project
+        run: dotnet restore src/A10w.Aspire.Hosting.ExternalAks.Tests/A10w.Aspire.Hosting.ExternalAks.Tests.csproj
+
+      - name: Build package project
+        run: |
+          dotnet build src/A10w.Aspire.Hosting.ExternalAks/A10w.Aspire.Hosting.ExternalAks.csproj --no-restore --configuration Release
+
+      - name: Build test project
+        run: dotnet build src/A10w.Aspire.Hosting.ExternalAks.Tests/A10w.Aspire.Hosting.ExternalAks.Tests.csproj --no-restore --configuration Release
 
       - name: Run tests
-        run: dotnet test --no-build --configuration Release --verbosity normal --collect:"XPlat Code Coverage" --results-directory ./TestResults
+        run: dotnet test src/A10w.Aspire.Hosting.ExternalAks.Tests/A10w.Aspire.Hosting.ExternalAks.Tests.csproj --no-build --configuration Release --verbosity normal --collect:"XPlat Code Coverage" --results-directory ./TestResults
 
       - name: Test Summary
         run: |
@@ -90,6 +110,7 @@ jobs:
           fi
 
       - name: Create GitHub Release
+        if: steps.get_version.outputs.dry_run != 'true'
         id: create_release
         uses: actions/create-release@v1
         env:
@@ -116,6 +137,7 @@ jobs:
           prerelease: ${{ contains(steps.get_version.outputs.version, '-') }}
 
       - name: Upload package to GitHub Release
+        if: steps.get_version.outputs.dry_run != 'true'
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -126,6 +148,7 @@ jobs:
           asset_content_type: application/zip
 
       - name: Publish to NuGet.org
+        if: steps.get_version.outputs.dry_run != 'true'
         run: |
           dotnet nuget push ./artifacts/packages/*.nupkg \
             --api-key ${{ secrets.NUGET_API_KEY }} \
@@ -134,7 +157,21 @@ jobs:
         env:
           NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
 
+      - name: Dry run summary
+        if: steps.get_version.outputs.dry_run == 'true'
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🧪 Dry Run Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- Built package project" >> $GITHUB_STEP_SUMMARY
+          echo "- Built test project" >> $GITHUB_STEP_SUMMARY
+          echo "- Ran tests" >> $GITHUB_STEP_SUMMARY
+          echo "- Packed NuGet artifact" >> $GITHUB_STEP_SUMMARY
+          echo "- Skipped GitHub Release creation" >> $GITHUB_STEP_SUMMARY
+          echo "- Skipped NuGet publish" >> $GITHUB_STEP_SUMMARY
+
       - name: Release Summary
+        if: steps.get_version.outputs.dry_run != 'true'
         run: |
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### ✅ Release Completed Successfully!" >> $GITHUB_STEP_SUMMARY
