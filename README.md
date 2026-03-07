@@ -1,42 +1,36 @@
-# aspire-hosting-externalaks
+# A10w.Aspire.Hosting.ExternalAks
 
-A sample + library repository for integrating external AKS services into a .NET Aspire AppHost.
+Aspire Hosting Integration to setup an External Service Resource inside an AKS cluster with port forwarding.
 
-This repository contains a reusable Aspire hosting package and a sample AppHost showing how to consume it via a local NuGet package.
+This repository contains:
 
-## Repository Structure
+- a reusable Aspire hosting library package (`A10w.Aspire.Hosting.ExternalAks`)
+- a sample AppHost that consumes the package locally for validation
 
-- `src/A10w.Aspire.Hosting.ExternalAks`: Reusable library package
-- `sample/A10w.Aspire.Hosting.ExternalAks.AppHost`: Sample Aspire AppHost
-- `sample/A10w.Aspire.Hosting.ExternalAks.Console`: Sample console app that consumes the external service
-- `sample/A10w.Aspire.Hosting.ExternalAks.ServiceDefaults`: Shared service defaults for the sample
-- `sample/test-local-package.ps1`: Helper script to repack and force-refresh local package consumption
-
-## Library Overview
+## Library First
 
 The library adds `AddExternalAksService(...)` to `IDistributedApplicationBuilder`.
 
-It creates:
+It creates and wires:
 
 - an executable resource that runs `kubectl port-forward`
 - an external service resource at `http://localhost:{LocalPort}`
-- a custom parent resource that groups and represents the AKS integration in Aspire
+- a custom parent resource that represents the AKS integration in Aspire
 
-## Quick Start (Sample)
+## Prerequisites
 
-1. Build and refresh local package consumption:
+- .NET SDK 10
+- PowerShell (`pwsh`)
+- `kubectl` installed and configured
+- Access to the target AKS cluster/network
 
-```powershell
-pwsh sample/test-local-package.ps1
-```
-
-2. Run the sample AppHost:
+## Install The Package in your AppHost
 
 ```bash
-dotnet run --project sample/A10w.Aspire.Hosting.ExternalAks.AppHost
+aspire add A10w.Aspire.Hosting.ExternalAks
 ```
 
-## Configuration Example
+## Library Usage
 
 ```csharp
 var documentsService = builder.AddExternalAksService("svc-documents", options =>
@@ -60,14 +54,8 @@ Optional property:
 
 - `RemotePort` (default: `80`)
 
-## Prerequisites
 
-- .NET SDK 10
-- PowerShell (`pwsh`)
-- `kubectl` installed and configured
-- Access to the target AKS cluster/network
-
-## Packaging Notes
+## Package Contents
 
 `src/A10w.Aspire.Hosting.ExternalAks` is configured as a NuGet package and includes:
 
@@ -75,7 +63,33 @@ Optional property:
 - `contentFiles/any/any/Scripts/setup-port-forward.ps1`
 - package readme: `PACKAGE-README.md`
 
-## Development Workflow
+## Sample App
+
+The sample project demonstrates local package-based consumption and validation.
+
+### Sample Structure
+
+- `src/A10w.Aspire.Hosting.ExternalAks`: Reusable library package
+- `sample/A10w.Aspire.Hosting.ExternalAks.AppHost`: Sample Aspire AppHost
+- `sample/A10w.Aspire.Hosting.ExternalAks.Console`: Sample console app that consumes the external service
+- `sample/A10w.Aspire.Hosting.ExternalAks.ServiceDefaults`: Shared service defaults for the sample
+- `sample/test-local-package.ps1`: Helper script to repack and force-refresh local package consumption
+
+### Run The Sample
+
+1. Build and refresh local package consumption:
+
+```powershell
+pwsh sample/test-local-package.ps1
+```
+
+2. Run the sample AppHost:
+
+```bash
+dotnet run --project sample/A10w.Aspire.Hosting.ExternalAks.AppHost
+```
+
+### Development Workflow
 
 When you make library changes and want to test from the sample:
 
