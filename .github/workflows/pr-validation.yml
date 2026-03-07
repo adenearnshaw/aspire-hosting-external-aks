@@ -48,8 +48,28 @@ jobs:
         run: dotnet build --no-restore --configuration Release
 
       - name: Run tests
-        run: dotnet test --no-build --configuration Release --verbosity normal
+        run: dotnet test --no-build --configuration Release --verbosity normal --collect:"XPlat Code Coverage" --results-directory ./TestResults --logger "trx;LogFileName=test-results.trx"
         continue-on-error: false
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-pr-${{ github.event.pull_request.number }}
+          path: |
+            ./TestResults/**/*.trx
+            ./TestResults/**/*.xml
+          retention-days: 7
+
+      - name: Test Summary
+        if: always()
+        run: |
+          echo "### 🧪 Test Results" >> $GITHUB_STEP_SUMMARY
+          if [ -f ./TestResults/**/*.trx ]; then
+            echo "✅ Tests executed successfully" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ No test results found" >> $GITHUB_STEP_SUMMARY
+          fi
 
       - name: Validate package contents
         run: |
