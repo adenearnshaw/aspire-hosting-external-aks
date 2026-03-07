@@ -32,7 +32,16 @@ jobs:
             9.0.x
             10.0.x
 
-      - name: Restore dependencies
+      - name: Create artifacts directory
+        run: mkdir -p ./artifacts/packages
+
+      - name: Build and pack main library
+        run: |
+          dotnet restore src/A10w.Aspire.Hosting.ExternalAks.csproj
+          dotnet build src/A10w.Aspire.Hosting.ExternalAks.csproj --no-restore --configuration Release
+          dotnet pack src/A10w.Aspire.Hosting.ExternalAks.csproj --no-build --configuration Release --output ./artifacts/packages
+
+      - name: Restore solution dependencies
         run: dotnet restore
 
       - name: Build solution
@@ -41,9 +50,6 @@ jobs:
       - name: Run tests
         run: dotnet test --no-build --configuration Release --verbosity normal
         continue-on-error: false
-
-      - name: Pack NuGet package
-        run: dotnet pack src/A10w.Aspire.Hosting.ExternalAks.csproj --no-build --configuration Release --output ./artifacts/packages
 
       - name: Validate package contents
         run: |
