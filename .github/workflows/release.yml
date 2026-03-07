@@ -1,0 +1,145 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+      - 'v[0-9]+.[0-9]+.[0-9]+-*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., 1.0.0)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  build-and-release:
+    name: Build and Release NuGet Package
+    runs-on: ubuntu-latest
+    environment: production
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract version from tag
+        id: get_version
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            # Remove 'v' prefix from tag (e.g., v1.2.3 -> 1.2.3)
+            VERSION=${GITHUB_REF#refs/tags/v}
+          fi
+          
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "📌 Building version: $VERSION"
+          echo "### Release Version: \`$VERSION\`" >> $GITHUB_STEP_SUMMARY
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            9.0.x
+            10.0.x
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Build solution
+        run: dotnet build --no-restore --configuration Release
+
+      - name: Run tests
+        run: dotnet test --no-build --configuration Release --verbosity normal --collect:"XPlat Code Coverage" --results-directory ./TestResults
+
+      - name: Test Summary
+        run: |
+          echo "### 🧪 Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "✅ All tests passed" >> $GITHUB_STEP_SUMMARY
+
+      - name: Pack NuGet package with version
+        run: |
+          dotnet pack src/A10w.Aspire.Hosting.ExternalAks/A10w.Aspire.Hosting.ExternalAks.csproj \
+            --no-build \
+            --configuration Release \
+            --output ./artifacts/packages \
+            /p:PackageVersion=${{ steps.get_version.outputs.version }}
+
+      - name: List package contents
+        run: |
+          echo "### 📦 Package Contents" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          ls -lh ./artifacts/packages/
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          
+          # Verify version in filename
+          PACKAGE_FILE="./artifacts/packages/A10w.Aspire.Hosting.ExternalAks.${{ steps.get_version.outputs.version }}.nupkg"
+          if [ -f "$PACKAGE_FILE" ]; then
+            echo "✅ Package created with correct version: $PACKAGE_FILE"
+          else
+            echo "❌ Expected package file not found: $PACKAGE_FILE"
+            echo "Available files:"
+            ls -la ./artifacts/packages/
+            exit 1
+          fi
+
+      - name: Create GitHub Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref_name }}
+          release_name: Release ${{ steps.get_version.outputs.version }}
+          body: |
+            ## NuGet Package Release ${{ steps.get_version.outputs.version }}
+            
+            ### Installation
+            ```bash
+            dotnet add package A10w.Aspire.Hosting.ExternalAks --version ${{ steps.get_version.outputs.version }}
+            ```
+            
+            ### Package Details
+            - **Package ID:** A10w.Aspire.Hosting.ExternalAks
+            - **Version:** ${{ steps.get_version.outputs.version }}
+            - **Target Framework:** .NET 10.0
+            
+            ### What's Changed
+            See the [commit history](https://github.com/${{ github.repository }}/compare/v${{ steps.get_version.outputs.version }}) for details.
+          draft: false
+          prerelease: ${{ contains(steps.get_version.outputs.version, '-') }}
+
+      - name: Upload package to GitHub Release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./artifacts/packages/A10w.Aspire.Hosting.ExternalAks.${{ steps.get_version.outputs.version }}.nupkg
+          asset_name: A10w.Aspire.Hosting.ExternalAks.${{ steps.get_version.outputs.version }}.nupkg
+          asset_content_type: application/zip
+
+      - name: Publish to NuGet.org
+        run: |
+          dotnet nuget push ./artifacts/packages/*.nupkg \
+            --api-key ${{ secrets.NUGET_API_KEY }} \
+            --source https://api.nuget.org/v3/index.json \
+            --skip-duplicate
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+
+      - name: Release Summary
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### ✅ Release Completed Successfully!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version:** ${{ steps.get_version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Package ID:** A10w.Aspire.Hosting.ExternalAks" >> $GITHUB_STEP_SUMMARY
+          echo "- **NuGet:** https://www.nuget.org/packages/A10w.Aspire.Hosting.ExternalAks/${{ steps.get_version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **GitHub Release:** ${{ steps.create_release.outputs.html_url }}" >> $GITHUB_STEP_SUMMARY

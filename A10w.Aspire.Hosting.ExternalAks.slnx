@@ -6,5 +6,6 @@
   </Folder>
   <Folder Name="/src/" >
     <Project Path="src/A10w.Aspire.Hosting.ExternalAks/A10w.Aspire.Hosting.ExternalAks.csproj" />
+    <Project Path="src/A10w.Aspire.Hosting.ExternalAks.Tests/A10w.Aspire.Hosting.ExternalAks.Tests.csproj" />
   </Folder>
 </Solution>
