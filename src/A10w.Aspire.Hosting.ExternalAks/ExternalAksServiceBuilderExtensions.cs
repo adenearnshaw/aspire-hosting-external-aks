@@ -14,26 +14,36 @@ public static class ExternalAksServiceBuilderExtensions
     /// <returns>The external service resource builder.</returns>
     /// <example>
     /// <code>
-    /// var documentsService = builder.AddExternalAksService("svc-documents", options => options
-    ///     .WithKubeContext("tst-services-cluster-uks-aks")
-    ///     .WithNamespace("dev-documentsservice")
-    ///     .WithServiceName("svc-documents")
-    ///     .WithLocalPort(8999));
+    /// var documentsService = builder.AddExternalAksService("svc-documents", options =>
+    /// {
+    ///     options.KubernetesContext = "tst-services-cluster-uks-aks";
+    ///     options.KubernetesNamespace = "dev-documentsservice";
+    ///     options.KubernetesServiceName = "svc-documents";
+    ///     options.LocalPort = 8999;
+    /// });
     /// </code>
     /// </example>
     public static IResourceBuilder<ExternalAksServiceResource> AddExternalAksService(
         this IDistributedApplicationBuilder builder,
         string name,
-        Action<ExternalAksServiceOptionsBuilder> configure)
+        Action<ExternalAksServiceOptions> configure)
     {
         // Build the port-forward settings once to keep resource creation consistent.
         ArgumentNullException.ThrowIfNull(builder);
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentNullException.ThrowIfNull(configure);
 
-        var optionsBuilder = new ExternalAksServiceOptionsBuilder();
-        configure(optionsBuilder);
-        var options = optionsBuilder.Build();
+        // Seed required properties with placeholders before user configuration runs.
+        var options = new ExternalAksServiceOptions
+        {
+            KubernetesContext = string.Empty,
+            KubernetesNamespace = string.Empty,
+            KubernetesServiceName = string.Empty,
+            LocalPort = 0
+        };
+
+        configure(options);
+        options.Validate();
 
         // Resolve script location relative to the AppHost project so execution works on case-sensitive file systems.
         var scriptsDirectory = Path.GetFullPath(Path.Combine(
@@ -57,44 +67,44 @@ public static class ExternalAksServiceBuilderExtensions
             throw new FileNotFoundException($"Port-forward script was not found at '{scriptPath}'.", scriptPath);
         }
 
-		// Setup the port-forward executable resource. 
-		// This will run a kubectl port-forward command to expose the AKS service locally.
+        // Setup the port-forward executable resource.
+        // This will run a kubectl port-forward command to expose the AKS service locally.
         var portForwardExecutable = builder.AddExecutable(
             $"{name}-port-forward",
             "pwsh",
             scriptsDirectory,
             scriptFileName,
             "-KubeContext",
-            options.KubeContext,
+            options.KubernetesContext,
             "-Namespace",
             options.KubernetesNamespace,
             "-ServiceName",
-            options.ServiceName,
+            options.KubernetesServiceName,
             "-LocalPort",
             options.LocalPort.ToString(CultureInfo.InvariantCulture),
             "-RemotePort",
             options.RemotePort.ToString(CultureInfo.InvariantCulture));
 
-		// Create the external service resource that represents the AKS service in the Aspire model.
+        // Create the external service resource that represents the AKS service in the Aspire model.
         var service = builder.AddExternalService($"{name}-ext", $"http://localhost:{options.LocalPort}/");
 
         // Define the custom resource that ties everything together. 
-		// This resource will be responsible for managing the lifecycle of the port-forward process and representing the AKS service in Aspire.
-		var resourceName = name;
+        // This resource will be responsible for managing the lifecycle of the port-forward process and representing the AKS service in Aspire.
+        var resourceName = name;
 
         var aksResource = new ExternalAksServiceResource(resourceName)
-		{
-			AksResouce = service,
-			PortForwardExecutable = portForwardExecutable,
-			LocalPort = options.LocalPort
-		};
+        {
+            AksResouce = service,
+            PortForwardExecutable = portForwardExecutable,
+            LocalPort = options.LocalPort
+        };
 
-		var resourceBuilder = builder.AddResource(aksResource)
-			.WithInitialState(new CustomResourceSnapshot
-			{
-				ResourceType = "ExternalAksService",
-				State = KnownResourceStates.Waiting,
-				Properties = []
+        var resourceBuilder = builder.AddResource(aksResource)
+            .WithInitialState(new CustomResourceSnapshot
+            {
+                ResourceType = "ExternalAksService",
+                State = KnownResourceStates.Waiting,
+                Properties = []
             })
             .WithEndpoint(
                 name: "http",
@@ -103,9 +113,10 @@ public static class ExternalAksServiceBuilderExtensions
                 isExternal: false,
                 isProxied: false);
 
-		service.WithParentRelationship(resourceBuilder);
-		portForwardExecutable.WithParentRelationship(resourceBuilder);
+        service.WithParentRelationship(resourceBuilder);
+        portForwardExecutable.WithParentRelationship(resourceBuilder);
 
-		return resourceBuilder;
+        return resourceBuilder;
     }
+
 }

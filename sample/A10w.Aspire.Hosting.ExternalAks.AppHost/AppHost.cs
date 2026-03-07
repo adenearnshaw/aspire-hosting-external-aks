@@ -1,10 +1,12 @@
 var builder = DistributedApplication.CreateBuilder(args);
 
-var documentsService = builder.AddExternalAksService("svc-documents", options => options
-    .WithKubeContext("tst-services-cluster-uks-aks")
-    .WithNamespace("dev-documentsservice")
-    .WithServiceName("svc-documents")
-    .WithLocalPort(8999))
+var documentsService = builder.AddExternalAksService("svc-documents", options =>
+	{
+		options.KubernetesContext = "tst-services-cluster-uks-aks";
+		options.KubernetesNamespace = "dev-documentsservice";
+		options.KubernetesServiceName = "svc-documents";
+		options.LocalPort = 8999;
+	})
     .WithHttpHealthCheck("/healthz")
     .WithHttpHealthCheck("/healthcheck");
 
