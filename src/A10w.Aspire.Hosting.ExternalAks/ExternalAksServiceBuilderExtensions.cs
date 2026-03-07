@@ -1,5 +1,4 @@
 using System.Globalization;
-using System.IO;
 
 namespace Aspire.Hosting;
 
@@ -70,20 +69,21 @@ public static class ExternalAksServiceBuilderExtensions
         // Setup the port-forward executable resource.
         // This will run a kubectl port-forward command to expose the AKS service locally.
         var portForwardExecutable = builder.AddExecutable(
-            $"{name}-port-forward",
-            "pwsh",
-            scriptsDirectory,
-            scriptFileName,
-            "-KubeContext",
-            options.KubernetesContext,
-            "-Namespace",
-            options.KubernetesNamespace,
-            "-ServiceName",
-            options.KubernetesServiceName,
-            "-LocalPort",
-            options.LocalPort.ToString(CultureInfo.InvariantCulture),
-            "-RemotePort",
-            options.RemotePort.ToString(CultureInfo.InvariantCulture));
+                $"{name}-port-forward",
+                "pwsh",
+                scriptsDirectory,
+                scriptFileName,
+                "-KubeContext",
+                options.KubernetesContext,
+                "-Namespace",
+                options.KubernetesNamespace,
+                "-ServiceName",
+                options.KubernetesServiceName,
+                "-LocalPort",
+                options.LocalPort.ToString(CultureInfo.InvariantCulture),
+                "-RemotePort",
+                options.RemotePort.ToString(CultureInfo.InvariantCulture))
+			.WithIconName("arrowForward", IconVariant.Regular);
 
         // Create the external service resource that represents the AKS service in the Aspire model.
         var service = builder.AddExternalService($"{name}-ext", $"http://localhost:{options.LocalPort}/");
@@ -94,7 +94,7 @@ public static class ExternalAksServiceBuilderExtensions
 
         var aksResource = new ExternalAksServiceResource(resourceName)
         {
-            AksResouce = service,
+			AksResouce = service,
             PortForwardExecutable = portForwardExecutable,
             LocalPort = options.LocalPort
         };
