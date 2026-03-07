@@ -103,7 +103,7 @@ public static class ExternalAksServiceBuilderExtensions
             .WithInitialState(new CustomResourceSnapshot
             {
                 ResourceType = "ExternalAksService",
-                State = KnownResourceStates.Waiting,
+                State = KnownResourceStates.NotStarted,
                 Properties = []
             })
             .WithEndpoint(
@@ -112,6 +112,15 @@ public static class ExternalAksServiceBuilderExtensions
                 port: options.LocalPort,
                 isExternal: false,
                 isProxied: false);
+
+        // Custom resources do not have a built-in lifecycle, so publish a state transition explicitly.
+        resourceBuilder.OnInitializeResource(async (_, initializeEvent, cancellationToken) =>
+        {
+            await initializeEvent.Notifications.PublishUpdateAsync(aksResource, snapshot => snapshot with
+            {
+                State = KnownResourceStates.Running
+            });
+        });
 
         service.WithParentRelationship(resourceBuilder);
         portForwardExecutable.WithParentRelationship(resourceBuilder);
