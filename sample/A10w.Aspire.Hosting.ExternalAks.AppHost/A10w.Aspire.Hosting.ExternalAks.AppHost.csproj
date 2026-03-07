@@ -11,7 +11,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../A10w.Aspire.Hosting.ExternalAks.Console/A10w.Aspire.Hosting.ExternalAks.Console.csproj" />
-    <ProjectReference Include="..\..\src\A10w.Aspire.Hosting.ExternalAks\A10w.Aspire.Hosting.ExternalAks.csproj" IsAspireProjectResource="false" />
+    <PackageReference Include="A10w.Aspire.Hosting.ExternalAks" Version="1.0.0" />
   </ItemGroup>
 </Project>
       
