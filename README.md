@@ -2,6 +2,10 @@
 
 Aspire Hosting Integration to setup an External Service Resource inside an AKS cluster with port forwarding.
 
+[![Latest Release](https://img.shields.io/github/v/release/adenearnshaw/aspire-hosting-external-aks?style=flat-square&color=8957e5&logo=github)](https://github.com/adenearnshaw/aspire-hosting-external-aks/releases/latest) [![NuGet version](https://img.shields.io/nuget/v/A10w.Aspire.Hosting.ExternalAks?style=flat-square&logo=nuget)](https://www.nuget.org/packages/A10w.Aspire.Hosting.ExternalAks)
+[![NuGet prerelease](https://img.shields.io/nuget/vpre/A10w.Aspire.Hosting.ExternalAks?style=flat-square&logo=nuget&label=prerelease)](https://www.nuget.org/packages/A10w.Aspire.Hosting.ExternalAks)
+[![NuGet downloads](https://img.shields.io/nuget/dt/A10w.Aspire.Hosting.ExternalAks?style=flat-square&logo=nuget&label=downloads)](https://www.nuget.org/packages/A10w.Aspire.Hosting.ExternalAks) [![License](https://img.shields.io/github/license/adenearnshaw/aspire-hosting-external-aks?style=flat-square&color=dfb317)](https://github.com/adenearnshaw/aspire-hosting-external-aks/tree/main/LICENSE) 
+
 This repository contains:
 
 - a reusable Aspire hosting library package (`A10w.Aspire.Hosting.ExternalAks`)
