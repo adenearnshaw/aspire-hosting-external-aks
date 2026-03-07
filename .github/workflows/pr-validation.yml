@@ -37,9 +37,9 @@ jobs:
 
       - name: Build and pack main library
         run: |
-          dotnet restore src/A10w.Aspire.Hosting.ExternalAks.csproj
-          dotnet build src/A10w.Aspire.Hosting.ExternalAks.csproj --no-restore --configuration Release
-          dotnet pack src/A10w.Aspire.Hosting.ExternalAks.csproj --no-build --configuration Release --output ./artifacts/packages
+          dotnet restore src/A10w.Aspire.Hosting.ExternalAks/A10w.Aspire.Hosting.ExternalAks.csproj
+          dotnet build src/A10w.Aspire.Hosting.ExternalAks/A10w.Aspire.Hosting.ExternalAks.csproj --no-restore --configuration Release
+          dotnet pack src/A10w.Aspire.Hosting.ExternalAks/A10w.Aspire.Hosting.ExternalAks.csproj --no-build --configuration Release --output ./artifacts/packages
 
       - name: Restore solution dependencies
         run: dotnet restore

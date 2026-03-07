@@ -60,7 +60,7 @@ jobs:
 
       - name: Pack NuGet package with version
         run: |
-          dotnet pack src/A10w.Aspire.Hosting.ExternalAks.csproj \
+          dotnet pack src/A10w.Aspire.Hosting.ExternalAks/A10w.Aspire.Hosting.ExternalAks.csproj \
             --no-build \
             --configuration Release \
             --output ./artifacts/packages \
