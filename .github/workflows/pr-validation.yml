@@ -65,7 +65,7 @@ jobs:
         if: always()
         run: |
           echo "### 🧪 Test Results" >> $GITHUB_STEP_SUMMARY
-          if [ -f ./TestResults/**/*.trx ]; then
+          if find ./TestResults -type f -name "*.trx" | grep -q .; then
             echo "✅ Tests executed successfully" >> $GITHUB_STEP_SUMMARY
           else
             echo "⚠️ No test results found" >> $GITHUB_STEP_SUMMARY
