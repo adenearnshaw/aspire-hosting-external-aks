@@ -20,7 +20,7 @@ $ErrorActionPreference = 'Stop'
 # Paths
 $scriptRoot = $PSScriptRoot
 $solutionRoot = Split-Path -Parent $scriptRoot
-$libraryProject = Join-Path $solutionRoot 'src' 'A10w.Aspire.Hosting.ExternalAks' 'A10w.Aspire.Hosting.ExternalAks.csproj'
+$libraryProject = Join-Path $solutionRoot 'src' 'A10w.Aspire.Hosting.ExternalAks.csproj'
 $appHostProject = Join-Path $scriptRoot 'A10w.Aspire.Hosting.ExternalAks.AppHost' 'A10w.Aspire.Hosting.ExternalAks.AppHost.csproj'
 $outputDir = Join-Path $solutionRoot 'artifacts' 'packages'
 
