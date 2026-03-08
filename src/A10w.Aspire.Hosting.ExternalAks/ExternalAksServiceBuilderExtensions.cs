@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Reflection;
 
 namespace Aspire.Hosting;
 
@@ -44,26 +45,27 @@ public static class ExternalAksServiceBuilderExtensions
         configure(options);
         options.Validate();
 
-        // Resolve script location relative to the AppHost project so execution works on case-sensitive file systems.
-        var scriptsDirectory = Path.GetFullPath(Path.Combine(
-            builder.AppHostDirectory,
-            "..",
-            "..",
-            "src",
-            "A10w.Aspire.Hosting.ExternalAks",
-            "Scripts"));
-
+        // Extract embedded PowerShell script to a temporary location.
         const string scriptFileName = "setup-port-forward.ps1";
-        var scriptPath = Path.Combine(scriptsDirectory, scriptFileName);
-
-        if (!Directory.Exists(scriptsDirectory))
+        const string embeddedResourceName = "A10w.Aspire.Hosting.ExternalAks.Scripts.setup-port-forward.ps1";
+        
+        var assembly = Assembly.GetExecutingAssembly();
+        var tempDirectory = Path.Combine(Path.GetTempPath(), "A10w.Aspire.Hosting.ExternalAks", Guid.NewGuid().ToString());
+        Directory.CreateDirectory(tempDirectory);
+        
+        var scriptPath = Path.Combine(tempDirectory, scriptFileName);
+        
+        using (var stream = assembly.GetManifestResourceStream(embeddedResourceName))
         {
-            throw new DirectoryNotFoundException($"Port-forward scripts directory was not found: '{scriptsDirectory}'.");
-        }
-
-        if (!File.Exists(scriptPath))
-        {
-            throw new FileNotFoundException($"Port-forward script was not found at '{scriptPath}'.", scriptPath);
+            if (stream == null)
+            {
+                throw new InvalidOperationException($"Embedded resource '{embeddedResourceName}' not found. Available resources: {string.Join(", ", assembly.GetManifestResourceNames())}");
+            }
+            
+            using (var fileStream = File.Create(scriptPath))
+            {
+                stream.CopyTo(fileStream);
+            }
         }
 
         // Setup the port-forward executable resource.
@@ -71,7 +73,7 @@ public static class ExternalAksServiceBuilderExtensions
         var portForwardExecutable = builder.AddExecutable(
                 $"{name}-port-forward",
                 "pwsh",
-                scriptsDirectory,
+                tempDirectory,
                 scriptFileName,
                 "-KubeContext",
                 options.KubernetesContext,

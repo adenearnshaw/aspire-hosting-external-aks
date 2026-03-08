@@ -10,7 +10,7 @@
     <!-- NuGet Package Metadata -->
     <IsPackable>true</IsPackable>
     <PackageId>A10w.Aspire.Hosting.ExternalAks</PackageId>
-    <Version>1.0.0</Version>
+    <Version>0.0.1</Version>
     <Authors>Aden Earnshaw</Authors>
     <Description>Aspire hosting integration for exposing external AKS services locally via kubectl port-forward.</Description>
     <PackageTags>aspire;kubernetes;aks;port-forward;hosting</PackageTags>
@@ -27,8 +27,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- Include PowerShell script in package - warnings suppressed as this is not an install script -->
-    <None Include="Scripts\setup-port-forward.ps1" Pack="true" PackagePath="contentFiles\any\any\Scripts" CopyToOutputDirectory="PreserveNewest" />
+    <!-- Embed PowerShell script as an embedded resource so it's available at runtime -->
+    <EmbeddedResource Include="Scripts\setup-port-forward.ps1" />
     <None Include="README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 </Project>
