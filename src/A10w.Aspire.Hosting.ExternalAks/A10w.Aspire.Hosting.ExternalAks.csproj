@@ -10,7 +10,7 @@
     <!-- NuGet Package Metadata -->
     <IsPackable>true</IsPackable>
     <PackageId>A10w.Aspire.Hosting.ExternalAks</PackageId>
-    <Version>0.0.1</Version>
+    <Version>1.0.0</Version>
     <Authors>Aden Earnshaw</Authors>
     <Description>Aspire hosting integration for exposing external AKS services locally via kubectl port-forward.</Description>
     <PackageTags>aspire;kubernetes;aks;port-forward;hosting</PackageTags>
