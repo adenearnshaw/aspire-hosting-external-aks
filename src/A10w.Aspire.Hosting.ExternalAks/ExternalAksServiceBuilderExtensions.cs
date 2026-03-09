@@ -115,9 +115,26 @@ public static class ExternalAksServiceBuilderExtensions
                 isExternal: false,
                 isProxied: false);
 
-        // Custom resources do not have a built-in lifecycle, so publish a state transition explicitly.
+            // Ensure the external service is not considered ready until the port-forward process is ready.
+            resourceBuilder.WaitForPortForward();
+
+        // Custom resources do not have a built-in lifecycle. We subscribe to the initialize event
+        // and wait for the port-forward executable to reach Running state before publishing our own
+        // Running state — this ensures any resource that calls .WaitFor() on this one is not released
+        // until the tunnel is actually up.
+        var portForwardResourceName = portForwardExecutable.Resource.Name;
         resourceBuilder.OnInitializeResource(async (_, initializeEvent, cancellationToken) =>
         {
+            await initializeEvent.Notifications.PublishUpdateAsync(aksResource, snapshot => snapshot with
+            {
+                State = KnownResourceStates.Starting
+            });
+
+            await initializeEvent.Notifications.WaitForResourceAsync(
+                portForwardResourceName,
+                KnownResourceStates.Running,
+                cancellationToken);
+
             await initializeEvent.Notifications.PublishUpdateAsync(aksResource, snapshot => snapshot with
             {
                 State = KnownResourceStates.Running
