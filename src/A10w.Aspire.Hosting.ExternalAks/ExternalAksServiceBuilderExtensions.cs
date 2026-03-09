@@ -1,5 +1,7 @@
 using System.Globalization;
 using System.Reflection;
+using Aspire.Hosting.ApplicationModel;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Aspire.Hosting;
 
@@ -68,6 +70,12 @@ public static class ExternalAksServiceBuilderExtensions
             }
         }
 
+        // Register a TCP health check for this port-forward instance. The key is scoped to the
+        // resource name so multiple AddExternalAksService calls each get their own check.
+        var healthCheckKey = $"port-forward-{name}-{options.LocalPort}";
+        builder.Services.AddHealthChecks()
+            .AddCheck(healthCheckKey, new PortForwardHealthCheck(options.LocalPort));
+
         // Setup the port-forward executable resource.
         // This will run a kubectl port-forward command to expose the AKS service locally.
         var portForwardExecutable = builder.AddExecutable(
@@ -85,7 +93,10 @@ public static class ExternalAksServiceBuilderExtensions
                 options.LocalPort.ToString(CultureInfo.InvariantCulture),
                 "-RemotePort",
                 options.RemotePort.ToString(CultureInfo.InvariantCulture))
-			.WithIconName("arrowForward", IconVariant.Regular);
+			.WithIconName("arrowForward", IconVariant.Regular)
+            // Associate the TCP health check so the executable shows Unhealthy until
+            // the tunnel is bound, even though the pwsh process itself is Running.
+            .WithHealthCheck(healthCheckKey);
 
         // Create the external service resource that represents the AKS service in the Aspire model.
         var service = builder.AddExternalService($"{name}-ext", $"http://localhost:{options.LocalPort}/");
@@ -119,26 +130,51 @@ public static class ExternalAksServiceBuilderExtensions
             resourceBuilder.WaitForPortForward();
 
         // Custom resources do not have a built-in lifecycle. We subscribe to the initialize event
-        // and wait for the port-forward executable to reach Running state before publishing our own
-        // Running state — this ensures any resource that calls .WaitFor() on this one is not released
-        // until the tunnel is actually up.
+        // and start a background task that drives the state machine by watching the port-forward
+        // executable's log output and notification stream.
         var portForwardResourceName = portForwardExecutable.Resource.Name;
-        resourceBuilder.OnInitializeResource(async (_, initializeEvent, cancellationToken) =>
+        resourceBuilder.OnInitializeResource(async (resource, initializeEvent, cancellationToken) =>
         {
             await initializeEvent.Notifications.PublishUpdateAsync(aksResource, snapshot => snapshot with
             {
                 State = KnownResourceStates.Starting
             });
 
-            await initializeEvent.Notifications.WaitForResourceAsync(
-                portForwardResourceName,
-                KnownResourceStates.Running,
-                cancellationToken);
+            var resourceLoggerService = initializeEvent.Services.GetRequiredService<ResourceLoggerService>();
 
-            await initializeEvent.Notifications.PublishUpdateAsync(aksResource, snapshot => snapshot with
+            // Log watcher: detect Azure Device Login prompt and surface it as a warning state
+            // so the user knows to authenticate via the link in the resource's console output.
+            _ = Task.Run(async () =>
             {
-                State = KnownResourceStates.Running
-            });
+                await foreach (var logBatch in resourceLoggerService.WatchAsync(portForwardExecutable.Resource).WithCancellation(cancellationToken))
+                {
+                    foreach (var logLine in logBatch)
+                    {
+                        if (logLine.Content.Contains("To sign in", StringComparison.OrdinalIgnoreCase))
+                        {
+                            await initializeEvent.Notifications.PublishUpdateAsync(aksResource, snapshot => snapshot with
+                            {
+                                State = new ResourceStateSnapshot("Login Required", KnownResourceStateStyles.Warn)
+                            });
+                        }
+                    }
+                }
+            }, cancellationToken);
+
+            // Notification watcher: wait for the port-forward executable's TCP health check to pass,
+            // which means the tunnel is established. Only then do we publish Running on the parent,
+            // unblocking any .WaitFor() callers on the ExternalAksServiceResource.
+            _ = Task.Run(async () =>
+            {
+                await initializeEvent.Notifications.WaitForResourceHealthyAsync(
+                    portForwardResourceName,
+                    cancellationToken);
+
+                await initializeEvent.Notifications.PublishUpdateAsync(aksResource, snapshot => snapshot with
+                {
+                    State = KnownResourceStates.Running
+                });
+            }, cancellationToken);
         });
 
         service.WithParentRelationship(resourceBuilder);
