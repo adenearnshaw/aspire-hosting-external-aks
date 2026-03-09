@@ -126,6 +126,16 @@ public static class ExternalAksServiceBuilderExtensions
                 isExternal: false,
                 isProxied: false);
 
+        // Custom resources are not managed by DCP, so their EndpointAnnotations are never
+        // allocated by the runtime. Pre-populate AllocatedEndpoint so that calls to
+        // GetEndpoint("http") resolve immediately instead of waiting indefinitely.
+        var endpointAnnotation = aksResource.Annotations.OfType<EndpointAnnotation>().First(a => a.Name == "http");
+        endpointAnnotation.AllocatedEndpoint = new AllocatedEndpoint(
+            endpointAnnotation,
+            "localhost",
+            options.LocalPort,
+            options.LocalPort.ToString(CultureInfo.InvariantCulture));
+
             // Ensure the external service is not considered ready until the port-forward process is ready.
             resourceBuilder.WaitForPortForward();
 
